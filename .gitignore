@@ -1,0 +1,11 @@
+# created by virtualenv automatically
+/bin
+/facefusion
+/lib
+/share
+
+
+pyvenv.cfg
+target.mp4
+test_output.mp4
+test_source.png
