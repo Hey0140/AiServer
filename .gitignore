@@ -3,9 +3,27 @@
 /facefusion
 /lib
 /share
-
-
 pyvenv.cfg
+
+#추가 예시 업로드 무시
+/uploads
+/outputs
+.env
+
 target.mp4
 test_output.mp4
 test_source.png
+
+# Python 컴파일 파일 무시
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+
+# IDE 설정파일 무시
+.vscode/
+.idea/
+
+# Mac에서 생성되는 파일 무시
+.DS_Store

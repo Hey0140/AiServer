@@ -1,4 +1,6 @@
+# AiServer.py
 from fastapi import FastAPI, UploadFile, File
+from dotenv import load_dotenv
 import shutil
 import os
 import uuid
@@ -8,15 +10,22 @@ import json
 
 app = FastAPI()
 
+load_dotenv()
+
+MAIN_SERVER_IP_URL = os.getenv("MAIN_SERVER_IP_URL")
 UPLOAD_FOLDER = "uploads/"
 OUTPUT_FOLDER = "outputs/"
-TARGET_VIDEO_PATH = "fixed_target/target.mp4"
-MAIN_SERVER_UPLOAD_URL = "http://192.168.0.5:8000/upload_result/"
+TARGET_VIDEO_PATH = "target.mp4"
+
+if MAIN_SERVER_IP_URL is None:
+    raise ValueError("MAIN_SERVER_IP_URL 환경변수가 설정되지 않았습니다.")
+
+MAIN_SERVER_UPLOAD_URL = "http://"+MAIN_SERVER_IP_URL+":8000/upload_result/"
+
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-# (1) basic.json 생성
 def create_job_from_basic(source_path, target_path, output_path, settings):
     project_root = os.path.dirname(os.path.abspath(__file__))
     basic_job_path = os.path.join(project_root, "facefusion", ".jobs", "queued", "basic.json")
@@ -59,12 +68,10 @@ def create_job_from_basic(source_path, target_path, output_path, settings):
     print(f"[+] Job file created at {new_job_path}")
     return job_id
 
-# (2) facefusion 실행
 def run_facefusion_with_job(job_id, execution_settings=None):
     if execution_settings is None:
         execution_settings = {}
 
-    # (1) job-submit
     subprocess.run([
         "python", "facefusion.py",
         "job-submit",
@@ -73,10 +80,8 @@ def run_facefusion_with_job(job_id, execution_settings=None):
 
     print(f"[+] Job {job_id} submitted.")
 
-    # (2) job-run with execution settings
     command = ["python", "facefusion.py", "job-run", job_id]
 
-    # 추가 execution 설정
     if "execution-device-id" in execution_settings:
         command += ["--execution-device-id", str(execution_settings["execution-device-id"])]
     if "execution-providers" in execution_settings:
@@ -90,7 +95,6 @@ def run_facefusion_with_job(job_id, execution_settings=None):
 
     print(f"[+] Job {job_id} executed with settings: {execution_settings}")
 
-# (3) 메인 서버로 결과 업로드
 async def send_output_to_main_server(file_path):
     async with httpx.AsyncClient() as client:
         with open(file_path, "rb") as f:
@@ -99,10 +103,9 @@ async def send_output_to_main_server(file_path):
     print(f"[+] Sent result to main server, status code: {response.status_code}")
     return response.status_code
 
-# (4) FastAPI 엔드포인트
 @app.post("/run_ai/")
 async def run_ai(file: UploadFile = File(...)):
-    saved_filename = f"{uuid.uuid4().hex}_{file.filename}"
+    saved_filename = f"{file.filename}"
     saved_file_path = os.path.join(UPLOAD_FOLDER, saved_filename)
 
     with open(saved_file_path, "wb") as buffer:
@@ -116,9 +119,10 @@ async def run_ai(file: UploadFile = File(...)):
         "face_detector_model": "scrfd"
     }
     execution_settings = {
-        "execution-providers": "coreml"  # 여기서 coreml이나 cuda로 지정
+        "execution-providers": "coreml"
     }
     output_file_path = os.path.join(OUTPUT_FOLDER, "output.mp4")
+
     job_id = create_job_from_basic(
         source_path=saved_file_path,
         target_path=TARGET_VIDEO_PATH,
@@ -128,6 +132,6 @@ async def run_ai(file: UploadFile = File(...)):
 
     run_facefusion_with_job(job_id, execution_settings)
 
-    status_code = await send_output_to_main_server(output_file_path)
+    await send_output_to_main_server(output_file_path)
 
-    return {"status": "ok", "main_server_response": status_code}
+    return {"status": "ok"}
