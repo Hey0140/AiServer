@@ -16,7 +16,7 @@ load_dotenv()
 MAIN_SERVER_IP_URL = os.getenv("MAIN_SERVER_IP_URL")
 UPLOAD_FOLDER = "uploads/"
 OUTPUT_FOLDER = "outputs/"
-TARGET_VIDEO_PATHS = ["target1.mp4", "target2.mp4"]  # 두 개의 타겟 영상
+TARGET_VIDEO_PATHS = ["target1.mp4", "target2.mp4"]  # 두 개의 타겟 영상2
 
 if MAIN_SERVER_IP_URL is None:
     raise ValueError("MAIN_SERVER_IP_URL 환경변수가 설정되지 않았습니다.")
