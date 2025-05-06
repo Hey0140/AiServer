@@ -10,9 +10,10 @@ pyvenv.cfg
 /outputs
 .env
 
-target.mp4
-test_output.mp4
-test_source.png
+target1.mp4
+target2.mp4
+test.py
+test_create_and_run_job.py
 
 # Python 컴파일 파일 무시
 __pycache__/
