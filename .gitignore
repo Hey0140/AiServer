@@ -28,3 +28,8 @@ __pycache__/
 
 # Mac에서 생성되는 파일 무시
 .DS_Store
+
+key.pem
+cert.pem
+mainserver_cert.pem
+openssl.cnf

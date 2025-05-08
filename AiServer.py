@@ -1,5 +1,6 @@
 # AiServer.py
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Request, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import shutil
 import os
@@ -10,6 +11,14 @@ import json
 import asyncio
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 또는 ["http://localhost:3000"] 같이 특정 origin만
+    allow_credentials=True,
+    allow_methods=["*"],  # OPTIONS, POST, GET 등 전부 허용
+    allow_headers=["*"],  # X-API-KEY 포함
+)
 
 load_dotenv()
 
@@ -25,6 +34,13 @@ MAIN_SERVER_UPLOAD_URL = f"http://{MAIN_SERVER_IP_URL}:8000/upload_result/"
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
+def verify_api_key(request: Request):
+    api_key = request.headers.get("X-API-KEY")
+    expected_key = os.getenv("API_KEY")
+
+    if api_key != expected_key:
+        raise HTTPException(status_code=403, detail="Unauthorized")
 
 def create_job_from_basic(source_path, target_path, output_path, settings):
     project_root = os.path.dirname(os.path.abspath(__file__))
@@ -60,6 +76,14 @@ def create_job_from_basic(source_path, target_path, output_path, settings):
     if "face_detector_model" in settings:
         args["face_detector_model"] = settings["face_detector_model"]
 
+    if "processors" in args:
+        if "face_enhancer" not in args["processors"]:
+            args["processors"].append("face_enhancer")
+        if "face_swapper" not in args["processors"]:
+            args["processors"].append("face_swapper")
+    else:
+        args["processors"] = ["face_swapper", "face_enhancer"]
+
     with open(new_job_path, "w") as f:
         json.dump(job_data, f, indent=4)
 
@@ -91,12 +115,14 @@ async def send_output_to_main_server(file_path):
     async with httpx.AsyncClient() as client:
         with open(file_path, "rb") as f:
             files = {'file': (os.path.basename(file_path), f, 'video/mp4')}
-            response = await client.post(MAIN_SERVER_UPLOAD_URL, files=files)
+            headers = {"X-API-KEY": os.getenv("API_KEY")}
+            response = await client.post(MAIN_SERVER_UPLOAD_URL, files=files, headers=headers)
     print(f"[+] Sent result to main server, status code: {response.status_code}")
     return response.status_code
 
 @app.post("/run_ai/")
-async def run_ai(file: UploadFile = File(...)):
+async def run_ai(file: UploadFile = File(...),
+                 _: None = Depends(verify_api_key)):
     saved_filename = file.filename
     saved_file_path = os.path.join(UPLOAD_FOLDER, saved_filename)
 
