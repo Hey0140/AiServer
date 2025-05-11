@@ -1,7 +1,7 @@
 # test_create_and_run_job.py
 
 import subprocess
-from AiServer import create_job_from_basic, run_facefusion_with_job
+from AiServerCoreml import create_job_from_basic, run_facefusion_with_job
 import os
 
 if __name__ == "__main__":
@@ -19,7 +19,7 @@ if __name__ == "__main__":
 
     # 테스트용 입력 경로
     source_path = "test_source.png"   # 얼굴이 있는 이미지
-    target_path = "target.mp4"         # 타겟 비디오
+    target_path = "target1.mp4"  # 타겟 비디오
     output_path = "test_output.mp4"    # 결과 저장 경로
 
     # (1) job 생성

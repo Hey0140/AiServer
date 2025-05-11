@@ -1,5 +1,5 @@
 # test_create_job.py
-from AiServer import create_job_from_basic  # 네 함수가 있는 파일명으로 수정해
+from AiServerCoreml import create_job_from_basic  # 네 함수가 있는 파일명으로 수정해
 import os
 
 if __name__ == "__main__":
@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     # 테스트용 입력 값
     source_path = "test_source.png"
-    target_path = "target.mp4"
+    target_path = "target1.mp4"
     output_path = "test_output.mp4"
 
     # job.json 생성
