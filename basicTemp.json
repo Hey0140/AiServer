@@ -1,7 +1,7 @@
 {
     "version": "1",
-    "date_created": "2025-04-28T22:41:41.682744+09:00",
-    "date_updated": "2025-04-28T22:42:57.831333+09:00",
+    "date_created": "2025-05-09T14:08:59.377399+09:00",
+    "date_updated": "2025-05-09T14:09:50.521399+09:00",
     "steps": [
         {
             "args": {
@@ -25,7 +25,7 @@
                 "face_selector_age_start": null,
                 "face_selector_age_end": null,
                 "reference_face_position": 0,
-                "reference_face_distance": 0.6,
+                "reference_face_distance": 0.3,
                 "reference_frame_number": 0,
                 "face_occluder_model": "xseg_1",
                 "face_parser_model": "bisenet_resnet_34",
@@ -58,19 +58,21 @@
                 "output_image_quality": 80,
                 "output_image_resolution": null,
                 "output_audio_encoder": "aac",
+                "output_audio_quality": 80,
+                "output_audio_volume": 100,
                 "output_video_encoder": "libx264",
                 "output_video_preset": "veryfast",
                 "output_video_quality": 80,
                 "output_video_resolution": "1280x720",
                 "output_video_fps": 24.0,
-                "skip_audio": null,
                 "processors": [
-                    "face_swapper"
+                    "face_swapper",
+                    "face_enhancer"
                 ],
                 "age_modifier_model": "styleganex_age",
                 "age_modifier_direction": 0,
                 "deep_swapper_model": "iperov/elon_musk_224",
-                "deep_swapper_morph": 80,
+                "deep_swapper_morph": 100,
                 "expression_restorer_model": "live_portrait",
                 "expression_restorer_factor": 80,
                 "face_debugger_items": [

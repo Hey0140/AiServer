@@ -137,7 +137,7 @@ async def run_ai(file: UploadFile = File(...),
         "face_detector_model": "scrfd"
     }
     execution_settings = {
-        "execution-providers": "coreml"
+        "execution-providers": "cuda"
     }
 
     # 비동기로 두 개의 타겟에 대해 순차 처리 및 전송

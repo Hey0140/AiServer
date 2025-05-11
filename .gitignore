@@ -4,6 +4,7 @@
 /lib
 /share
 pyvenv.cfg
+.venv
 
 #추가 예시 업로드 무시
 /uploads
