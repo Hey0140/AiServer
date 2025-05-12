@@ -47,11 +47,11 @@ def verify_api_key(request: Request):
 
 def create_job_from_basic(source_path, target_path, output_path, settings):
     project_root = os.path.dirname(os.path.abspath(__file__))
-    basic_job_path = os.path.join(project_root, "facefusion", ".jobs", "queued", "basic.json")
+    basic_job_path = os.path.join(project_root, "facefusion", ".jobs", "queued", "basic3.json")
     drafted_folder = os.path.join(project_root, "facefusion", ".jobs", "drafted")
     os.makedirs(drafted_folder, exist_ok=True)
 
-    job_id = uuid.uuid4().hex
+    job_id = uuid.uuid4().hex[:5]
     job_filename = f"{job_id}.json"
     new_job_path = os.path.join(drafted_folder, job_filename)
 
@@ -69,7 +69,7 @@ def create_job_from_basic(source_path, target_path, output_path, settings):
     args["face_enhancer_model"] = settings["face_enhancer_model"]
     args["face_detector_model"] = settings["face_detector_model"]
 
-    with open(new_job_path, "w") as f:
+    with open(new_job_path, "w", encoding="utf-8") as f:
         json.dump(job_data, f, indent=4)
 
     print(f"[+] Job file created at {new_job_path}")
@@ -79,14 +79,62 @@ def run_facefusion_with_job(job_id, execution_settings=None):
     if execution_settings is None:
         execution_settings = {}
 
-    subprocess.run(["python", "facefusion.py", "job-submit", job_id], cwd="facefusion", check=True)
+    python_path = r"C:\Users\user\miniconda3\python.exe"
+    env = os.environ.copy()
+    env["PATH"] = ";".join([p for p in env["PATH"].split(";") if ".venv" not in p])
+    env["CUDA_PATH"] = r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2"
+    env["CUDA_HOME"] = r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2"
 
-    command = ["python", "facefusion.py", "job-run", job_id]
-    if "execution-providers" in execution_settings:
-        command += ["--execution-providers", execution_settings["execution-providers"]]
+    print(f"[🛠️ ENV PATH]\n{env['PATH']}")
+    print(f"[🛠️ JOB ID] {job_id}")
 
-    subprocess.run(command, cwd="facefusion", check=True)
-    print(f"[+] Job {job_id} executed with settings: {execution_settings}")
+    submit_bat = os.path.join("facefusion", "submit_job.bat")
+    run_bat = os.path.join("facefusion", "run_job.bat")
+
+    with open(submit_bat, "w", encoding="utf-8") as f:
+        f.write("@echo off\n")
+        f.write(f'"{python_path}" facefusion.py job-submit {job_id}\n')
+
+    with open(run_bat, "w", encoding="utf-8") as f:
+        f.write("@echo off\n")
+        if "execution-providers" in execution_settings:
+            f.write(
+                f'"{python_path}" facefusion.py job-run {job_id} --execution-providers {execution_settings["execution-providers"]}\n')
+        else:
+            f.write(f'"{python_path}" facefusion.py job-run {job_id}\n')
+
+    print(f"[📁 SUBMIT BAT] {submit_bat}")
+    print(f"[📁 RUN BAT]    {run_bat}")
+
+    # ⛳ Check job file
+    job_path = os.path.join("facefusion", ".jobs", "drafted", f"{job_id}.json")
+    print(f"[📄 JOB JSON PATH] {job_path}")
+    if not os.path.exists(job_path):
+        print("❌ job JSON file not found before execution.")
+    else:
+        with open(job_path, "r") as jf:
+            job_content = json.load(jf)
+            print(f"[📄 JOB JSON SUMMARY] source: {job_content['steps'][0]['args']['source_paths'][0]}")
+
+    # ✅ Submit job
+    result_submit = subprocess.run(["cmd.exe", "/c", "submit_job.bat"], cwd="facefusion", env=env, capture_output=True,
+                                   text=True)
+    print("[SUBMIT STDOUT]", result_submit.stdout)
+    print("[SUBMIT STDERR]", result_submit.stderr)
+    if result_submit.returncode != 0:
+        print("❌ job-submit 실패:", result_submit.args)
+        return
+
+    # ✅ Run job
+    result_run = subprocess.run(["cmd.exe", "/c", "run_job.bat"], cwd="facefusion", env=env, capture_output=True,
+                                text=True)
+    print("[RUN STDOUT]", result_run.stdout)
+    print("[RUN STDERR]", result_run.stderr)
+    if result_run.returncode != 0:
+        print("❌ job-run 실패:", result_run.args)
+    else:
+        print(f"[+] Job {job_id} executed successfully.")
+
 
 async def send_output_to_main_server(file_path):
     async with httpx.AsyncClient() as client:
@@ -104,7 +152,8 @@ async def run_ai(file: UploadFile = File(...),
 
     # 최초 업로드
     if SOURCE_IMAGE_PATH is None:
-        filename = f"{uuid.uuid4().hex}_{file.filename}"
+        short_id = uuid.uuid4().hex[:3]
+        filename = file.filename
         save_path = os.path.join(UPLOAD_FOLDER, filename)
         with open(save_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -132,6 +181,7 @@ async def run_ai(file: UploadFile = File(...),
         output_path=output_path,
         settings=settings
     )
+
     run_facefusion_with_job(job_id, execution_settings)
     await send_output_to_main_server(output_path)
 
