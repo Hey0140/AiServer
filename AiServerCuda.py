@@ -8,6 +8,7 @@ import httpx
 import subprocess
 import json
 import asyncio
+import time
 
 app = FastAPI()
 
@@ -25,7 +26,7 @@ MAIN_SERVER_IP_URL = os.getenv("MAIN_SERVER_IP_URL")
 UPLOAD_FOLDER = "uploads/"
 OUTPUT_FOLDER = "outputs/"
 TARGET_VIDEO_PATHS = [
-    "target1.mp4", "target2.mp4", "target3.mp4", "target4.mp4"
+    "D:/AiServerTemp/AiServer/target1.mp4", "D:/AiServerTemp/AiServer/target2.mp4", "D:/AiServerTemp/AiServer/target3.mp4", "D:/AiServerTemp/AiServer/target4.mp4"
 ]  # 최대 4개 처리 가능
 
 # 전역 경로 저장
@@ -45,9 +46,9 @@ def verify_api_key(request: Request):
     if api_key != expected_key:
         raise HTTPException(status_code=403, detail="Unauthorized")
 
-def create_job_from_basic(source_path, target_path, output_path, settings):
+def create_job_from_basic(source_path, target_path, output_path):
     project_root = os.path.dirname(os.path.abspath(__file__))
-    basic_job_path = os.path.join(project_root, "facefusion", ".jobs", "queued", "basic3.json")
+    basic_job_path = os.path.join(project_root, "facefusion", ".jobs", "queued", "basic4.json")
     drafted_folder = os.path.join(project_root, "facefusion", ".jobs", "drafted")
     os.makedirs(drafted_folder, exist_ok=True)
 
@@ -62,18 +63,19 @@ def create_job_from_basic(source_path, target_path, output_path, settings):
 
     args = job_data["steps"][0]["args"]
     args["source_paths"][0] = os.path.abspath(source_path)
-    args["target_path"] = os.path.abspath(target_path)
+    # args["target_path"] = os.path.abspath(target_path)
     args["output_path"] = os.path.abspath(output_path)
-    args["processors"] = ["face_swapper", "face_enhancer"]
-    args["face_swapper_model"] = settings["face_swapper_model"]
-    args["face_enhancer_model"] = settings["face_enhancer_model"]
-    args["face_detector_model"] = settings["face_detector_model"]
+    # args["processors"] = ["face_swapper", "face_enhancer"]
+    # args["face_swapper_model"] = settings["face_swapper_model"]
+    # args["face_enhancer_model"] = settings["face_enhancer_model"]
+    # args["face_detector_model"] = settings["face_detector_model"]
 
     with open(new_job_path, "w", encoding="utf-8") as f:
         json.dump(job_data, f, indent=4)
 
     print(f"[+] Job file created at {new_job_path}")
-    return job_id, args["output_path"]
+    #
+    return job_id, os.path.abspath(output_path)
 
 def run_facefusion_with_job(job_id, execution_settings=None):
     if execution_settings is None:
@@ -164,13 +166,14 @@ async def run_ai(file: UploadFile = File(...),
         raise HTTPException(status_code=400, detail="Invalid index.")
 
     target_path = TARGET_VIDEO_PATHS[index]
-    output_path = os.path.join(OUTPUT_FOLDER, f"output_{index}_{os.path.basename(target_path)}")
+    output_path = f"D:/AiServerTemp/AiServer/outputs/output_{index}.mp4"
 
     settings = {
         "face_swapper_model": "inswapper_128_fp16",
         "face_enhancer_model": "gfpgan_1.4",
         "face_detector_model": "scrfd"
     }
+
     execution_settings = {
         "execution-providers": "cuda"
     }
@@ -178,11 +181,26 @@ async def run_ai(file: UploadFile = File(...),
     job_id, _ = create_job_from_basic(
         source_path=SOURCE_IMAGE_PATH,
         target_path=target_path,
-        output_path=output_path,
-        settings=settings
+        output_path=output_path
     )
 
     run_facefusion_with_job(job_id, execution_settings)
+
+    # try:
+    #     wait_for_file(output_path, timeout=300)
+    # except TimeoutError as e:
+    #     raise HTTPException(status_code=500, detail=str(e))
+
     await send_output_to_main_server(output_path)
 
     return {"status": f"completed index {index}"}
+
+
+def wait_for_file(path, timeout=300, check_interval=1):
+    """특정 파일이 생성될 때까지 최대 timeout 초까지 대기"""
+    start_time = time.time()
+    while not os.path.exists(path):
+        if time.time() - start_time > timeout:
+            raise TimeoutError(f"파일 {path} 생성 대기 시간 초과")
+        time.sleep(check_interval)
+    return True
