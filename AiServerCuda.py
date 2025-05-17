@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form, Request, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from typing import Optional
 import shutil
 import os
 import uuid
@@ -26,7 +27,10 @@ MAIN_SERVER_IP_URL = os.getenv("MAIN_SERVER_IP_URL")
 UPLOAD_FOLDER = "uploads/"
 OUTPUT_FOLDER = "outputs/"
 TARGET_VIDEO_PATHS = [
-    "D:/AiServerTemp/AiServer/target1.mp4", "D:/AiServerTemp/AiServer/target2.mp4", "D:/AiServerTemp/AiServer/target3.mp4", "D:/AiServerTemp/AiServer/target4.mp4"
+    "D:/AiServerTemp/AiServer/target1.mp4", "D:/AiServerTemp/AiServer/target2.mp4",
+    "D:/AiServerTemp/AiServer/target3.mp4", "D:/AiServerTemp/AiServer/target4.mp4",
+    "D:/AiServerTemp/AiServer/target1.mp4", "D:/AiServerTemp/AiServer/target2.mp4",
+    "D:/AiServerTemp/AiServer/target3.mp4", "D:/AiServerTemp/AiServer/target4.mp4"
 ]  # 최대 4개 처리 가능
 
 # 전역 경로 저장
@@ -139,18 +143,26 @@ def run_facefusion_with_job(job_id, execution_settings=None):
 
 
 async def send_output_to_main_server(file_path):
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         with open(file_path, "rb") as f:
             files = {'file': (os.path.basename(file_path), f, 'video/mp4')}
             headers = {"X-API-KEY": os.getenv("API_KEY")}
             await client.post(MAIN_SERVER_UPLOAD_URL, files=files, headers=headers)
     print(f"[+] Sent result to main server")
+    print(f"[+] result path is {file_path}")
 
 @app.post("/run_ai/")
-async def run_ai(file: UploadFile = File(...),
+async def run_ai(file: Optional[UploadFile] = File(None),
                  index: int = Form(...),
                  _: None = Depends(verify_api_key)):
     global SOURCE_IMAGE_PATH
+
+    if index == -1:
+        print("[=] DONE signal recieved. Going idle")
+        return {"status" : "idle"}
+
+    if file is None:
+        raise HTTPException(status_code=400, detail="File is required for processing.")
 
     # 최초 업로드
     if SOURCE_IMAGE_PATH is None:
@@ -161,6 +173,7 @@ async def run_ai(file: UploadFile = File(...),
             shutil.copyfileobj(file.file, buffer)
         SOURCE_IMAGE_PATH = save_path
         print(f"[+] Source image saved at {SOURCE_IMAGE_PATH}")
+        print(f"[+] index number is {index}")
 
     if index >= len(TARGET_VIDEO_PATHS):
         raise HTTPException(status_code=400, detail="Invalid index.")
